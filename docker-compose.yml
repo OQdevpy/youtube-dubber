@@ -1,5 +1,10 @@
-# One container: the API and the web player on http://127.0.0.1:9988/
+# One container: the API and the web player on http://<host>:9988/
 #   docker compose up -d --build
+#
+# On a server where YouTube answers "Sign in to confirm you're not a bot",
+# also start the free Cloudflare WARP proxy and route YouTube through it:
+#   1. in backend/.env set  YOUTUBE_PROXY=socks5h://warp:1080
+#   2. docker compose --profile warp up -d --build
 services:
   dubber:
     build: ./backend
@@ -16,5 +21,27 @@ services:
       # - ./backend/cookies.txt:/app/cookies.txt
     restart: unless-stopped
 
+  # Optional (profile "warp"): Cloudflare WARP as a SOCKS5/HTTP proxy on warp:1080.
+  # Deliberately NOT published on the host, so the server doesn't become an open proxy.
+  warp:
+    image: caomingjun/warp
+    container_name: youtube-dubber-warp
+    profiles: ["warp"]
+    restart: unless-stopped
+    environment:
+      - WARP_SLEEP=2
+    device_cgroup_rules:
+      - "c 10:200 rwm"
+    cap_add:
+      - MKNOD
+      - AUDIT_WRITE
+      - NET_ADMIN
+    sysctls:
+      - net.ipv6.conf.all.disable_ipv6=0
+      - net.ipv4.conf.all.src_valid_mark=1
+    volumes:
+      - warp-data:/var/lib/cloudflare-warp
+
 volumes:
   dub-audio:
+  warp-data:

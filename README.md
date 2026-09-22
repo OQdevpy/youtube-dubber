@@ -35,7 +35,16 @@ To stop it, run `docker compose down`. Generated audio is kept in the `dub-audio
 The same `docker compose up -d --build` works. The port is published on all interfaces, so the site is at `http://<server-ip>:9988/`. Two settings in `backend/.env` matter on a public server:
 
 - **`DUB_PASSWORD`**: without it, anyone who finds the address can spend your Gemini and ElevenLabs credits. With it set, the browser asks for a login (user `DUB_USER`, default `dublyaj`).
-- **`YOUTUBE_PROXY`**: YouTube blocks many datacenter IPs. If dubbing fails with `YOUTUBE_BLOCKED` or with "Sign in to confirm you're not a bot" (`YOUTUBE_BOT_CHECK`), set a proxy such as `http://user:pass@host:port` (residential proxies work best).
+- **`YOUTUBE_PROXY`**: YouTube blocks many datacenter IPs. If dubbing fails with `YOUTUBE_BLOCKED` or with "Sign in to confirm you're not a bot" (`YOUTUBE_BOT_CHECK`), route YouTube through a proxy. The free option is built in, a Cloudflare WARP container:
+
+  ```bash
+  # in backend/.env
+  YOUTUBE_PROXY=socks5h://warp:1080
+  # then
+  docker compose --profile warp up -d --build
+  ```
+
+  The WARP proxy is only reachable by the app, not from the internet. YouTube usually accepts WARP's Cloudflare IPs, but not always. If it's still blocked, use a paid residential proxy (`http://user:pass@host:port`) or cookies (below). To check that WARP is up, run `docker exec youtube-dubber-warp curl -s --socks5-hostname 127.0.0.1:1080 https://www.cloudflare.com/cdn-cgi/trace`; the output should include `warp=on`.
 - **`YOUTUBE_COOKIES`**: for the speech-to-text source only, you can use YouTube cookies instead of a proxy:
   1. Export `cookies.txt` from a browser logged in to YouTube. Use a spare account, because YouTube may restrict accounts used this way.
   2. Save it as `backend/cookies.txt`.
