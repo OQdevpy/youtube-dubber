@@ -1,0 +1,16 @@
+# One container: the API and the web player on http://127.0.0.1:9988/
+#   docker compose up -d --build
+services:
+  dubber:
+    build: ./backend
+    container_name: youtube-dubber
+    ports:
+      - "127.0.0.1:9988:9988"
+    env_file:
+      - ./backend/.env
+    volumes:
+      - dub-audio:/data/audio # generated MP3s only
+    restart: unless-stopped
+
+volumes:
+  dub-audio:

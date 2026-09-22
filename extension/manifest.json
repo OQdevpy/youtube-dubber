@@ -1,0 +1,26 @@
+{
+  "manifest_version": 3,
+  "name": "YouTube Uzbek Dubbing",
+  "version": "1.0.0",
+  "description": "Dubs YouTube videos into Uzbek using captions, machine translation and neural TTS (local server).",
+  "permissions": ["activeTab", "scripting", "storage"],
+  "host_permissions": [
+    "*://*.youtube.com/*",
+    "http://localhost:9988/*",
+    "http://127.0.0.1:9988/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "Uzbek dubbing",
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://*.youtube.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

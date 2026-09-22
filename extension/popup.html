@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Uzbek Dubbing</title>
+    <style>
+      :root {
+        --bg: #ffffff;
+        --fg: #0f172a;
+        --muted: #64748b;
+        --line: #e2e8f0;
+        --field: #f8fafc;
+        --accent: #0891b2;
+        --accent-fg: #ffffff;
+        --ok: #16a34a;
+        --err: #dc2626;
+        --err-bg: #fef2f2;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #0f172a;
+          --fg: #e2e8f0;
+          --muted: #94a3b8;
+          --line: #1e293b;
+          --field: #1e293b;
+          --accent: #22d3ee;
+          --accent-fg: #0f172a;
+          --err-bg: #3b1418;
+        }
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        width: 300px;
+        padding: 16px;
+        font: 13px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+        background: var(--bg);
+        color: var(--fg);
+      }
+      header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+      h1 { margin: 0; font-size: 15px; font-weight: 650; letter-spacing: -0.01em; }
+      .server { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 11px; }
+      .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); }
+      .dot.ok { background: var(--ok); }
+      .dot.down { background: var(--err); }
+      label { display: block; font-size: 11px; font-weight: 600; color: var(--muted); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.04em; }
+      select {
+        width: 100%;
+        padding: 7px 8px;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        background: var(--field);
+        color: var(--fg);
+        font: inherit;
+      }
+      button {
+        width: 100%;
+        margin-top: 12px;
+        padding: 9px 12px;
+        border: 0;
+        border-radius: 6px;
+        background: var(--accent);
+        color: var(--accent-fg);
+        font: inherit;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      button.stop { background: transparent; color: var(--fg); border: 1px solid var(--line); }
+      button:disabled { opacity: 0.45; cursor: default; }
+      .status { margin-top: 12px; min-height: 18px; color: var(--muted); }
+      .progress { height: 4px; margin-top: 8px; border-radius: 2px; background: var(--line); overflow: hidden; }
+      .progress > div { height: 100%; width: 0; background: var(--accent); transition: width 0.3s ease; }
+      .error { margin-top: 10px; padding: 8px 10px; border-radius: 6px; background: var(--err-bg); color: var(--err); }
+      [hidden] { display: none !important; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Uzbek Dubbing</h1>
+      <span class="server" title="Local dubbing server"><span id="server-dot" class="dot"></span><span id="server-text">checking…</span></span>
+    </header>
+
+    <label for="voice">Voice</label>
+    <select id="voice">
+      <option value="uz-UZ-MadinaNeural">Madina (female)</option>
+      <option value="uz-UZ-SardorNeural">Sardor (male)</option>
+    </select>
+
+    <button id="toggle" disabled>Start Uzbek Dubbing</button>
+
+    <div id="status" class="status"></div>
+    <div id="progress" class="progress" hidden><div></div></div>
+    <div id="error" class="error" hidden></div>
+
+    <script src="popup.js"></script>
+  </body>
+</html>

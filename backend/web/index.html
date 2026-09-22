@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="uz">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- YouTube's embedded player needs the page origin as referrer (else error 153) -->
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+    <title>Dublyaj</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;800&display=swap" rel="stylesheet" />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 16 16%27%3E%3Ccircle cx=%278%27 cy=%278%27 r=%277%27 fill=%27%232fb3b0%27/%3E%3C/svg%3E" />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <main class="page">
+      <header class="top">
+        <h1 class="mark">Dublyaj</h1>
+        <p class="server" id="server" data-state="checking"><span class="lamp"></span><span id="server-text">Server tekshirilmoqda…</span></p>
+      </header>
+
+      <form class="linkbar" id="link-form" autocomplete="off" novalidate>
+        <label class="sr" for="link">YouTube havolasi</label>
+        <input id="link" type="text" inputmode="url" placeholder="YouTube havolasini shu yerga qo'ying" />
+        <label class="sr" for="source">Matn manbasi</label>
+        <select id="source" title="Tarjima qilinadigan matn qayerdan olinadi">
+          <option value="captions">YouTube subtitrlari</option>
+          <option value="stt">Ovozdan matn (ElevenLabs)</option>
+        </select>
+        <label class="sr" for="voice">Ovoz</label>
+        <select id="voice"></select>
+        <button type="submit" id="go">Tarjima qilish</button>
+      </form>
+      <p class="form-error" id="form-error" role="alert" hidden></p>
+
+      <div class="workspace">
+        <div class="main-col">
+          <section class="stage" id="stage">
+            <div class="empty" id="empty">
+              <p>Havolani yuqoriga qo'yib, «Tarjima qilish»ni bosing. Video YouTube pleerida ochiladi, o'zbekcha ovoz tayyor bo'lgan joydan boshlab eshitiladi.</p>
+            </div>
+            <div id="player"></div>
+            <p class="wait-pill" id="wait-pill" hidden>O'zbekcha ovoz tayyorlanmoqda…</p>
+            <div class="subs" id="subs">
+              <p class="sub-en" id="sub-en"></p>
+              <p class="sub-uz" id="sub-uz"></p>
+            </div>
+          </section>
+
+          <div class="timeline" id="timeline" hidden>
+            <div class="map" id="map" title="Shu joyga o'tish uchun bosing">
+              <div class="ticks" id="ticks"></div>
+              <div class="playhead" id="playhead"></div>
+            </div>
+            <ul class="legend">
+              <li><span class="swatch" data-s="pending"></span>Navbatda</li>
+              <li><span class="swatch" data-s="translated"></span>Tarjima qilindi</li>
+              <li><span class="swatch" data-s="ready"></span>Ovoz tayyor</li>
+            </ul>
+          </div>
+
+          <section class="console" aria-label="Ovoz va subtitr boshqaruvi">
+            <div class="channel" data-channel="orig">
+              <button type="button" class="switch" id="t-orig" aria-pressed="true"><span class="lamp"></span>YouTube ovozi</button>
+              <input type="range" id="v-orig" min="0" max="100" step="1" aria-label="YouTube ovozi balandligi" />
+              <output id="o-orig" for="v-orig"></output>
+            </div>
+            <div class="channel" data-channel="dub">
+              <button type="button" class="switch" id="t-dub" aria-pressed="true"><span class="lamp"></span>O'zbekcha ovoz</button>
+              <input type="range" id="v-dub" min="0" max="100" step="1" aria-label="O'zbekcha ovoz balandligi" />
+              <output id="o-dub" for="v-dub"></output>
+            </div>
+            <div class="channel">
+              <button type="button" class="switch" id="t-sub-en" aria-pressed="false"><span class="lamp"></span>Inglizcha subtitr</button>
+            </div>
+            <div class="channel">
+              <button type="button" class="switch" id="t-sub-uz" aria-pressed="true"><span class="lamp"></span>O'zbekcha subtitr</button>
+            </div>
+            <button type="button" class="fullscreen" id="fullscreen">To'liq ekran</button>
+          </section>
+          <p class="hint">Subtitrlar to'liq ekranda ham ko'rinishi uchun pleerdagi emas, shu yerdagi «To'liq ekran» tugmasini bosing (yoki F tugmasi).</p>
+        </div>
+
+        <aside class="side" aria-label="Tarjima jarayoni va matn">
+          <div class="side-inner">
+            <section class="progress" id="progress" data-state="idle">
+              <h2 id="progress-title">Hali video tanlanmagan</h2>
+              <ol class="steps">
+                <li id="step-captions" data-state="idle"><span class="lamp"></span><span class="step-name" id="n-captions">Matn (subtitrlar)</span><span class="count" id="c-captions"></span></li>
+                <li id="step-translate" data-state="idle"><span class="lamp"></span><span class="step-name">Gemini tarjimasi</span><span class="count" id="c-translate"></span><span class="bar"><span id="b-translate"></span></span></li>
+                <li id="step-voice" data-state="idle"><span class="lamp"></span><span class="step-name">O'zbekcha ovoz</span><span class="count" id="c-voice"></span><span class="bar"><span id="b-voice"></span></span></li>
+              </ol>
+              <p class="progress-meta" id="progress-meta"></p>
+              <p class="progress-error" id="progress-error" role="alert" hidden></p>
+              <div class="progress-actions">
+                <button type="button" class="link-btn" id="retry" hidden>Qayta urinish</button>
+                <button type="button" class="link-btn" id="unlock" hidden>O'zbekcha ovozni yoqish</button>
+              </div>
+              <label class="check"><input type="checkbox" id="wait" checked /> Ovoz tayyor bo'lmagan joyda videoni to'xtatib turish</label>
+            </section>
+            <ol class="lines" id="lines" aria-label="Matn"></ol>
+          </div>
+        </aside>
+      </div>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>
