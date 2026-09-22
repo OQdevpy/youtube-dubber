@@ -5,7 +5,8 @@ services:
     build: ./backend
     container_name: youtube-dubber
     ports:
-      - "127.0.0.1:9988:9988"
+      # reachable from other machines; set DUB_PASSWORD in backend/.env on a server
+      - "9988:9988"
     env_file:
       - ./backend/.env
     volumes:

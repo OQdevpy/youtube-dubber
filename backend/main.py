@@ -24,12 +24,14 @@ Run:  python main.py      then open http://127.0.0.1:8000/
 from __future__ import annotations
 
 import asyncio
+import base64
 import html
 import json
 import logging
 import math
 import os
 import re
+import secrets
 import shutil
 import sys
 import time
@@ -43,6 +45,7 @@ from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
+from youtube_transcript_api.proxies import GenericProxyConfig
 from youtube_transcript_api import (
     AgeRestricted,
     CouldNotRetrieveTranscript,
@@ -83,6 +86,15 @@ CACHE_VERSION = "v4"  # bump to invalidate cached audio after pipeline changes
 # speech-to-text on the video's audio (also used automatically when a video has
 # no usable captions and an ElevenLabs key is configured).
 SOURCES = ("captions", "stt")
+
+# YouTube often blocks caption/audio requests from datacenter IPs (VPS hosts).
+# Route them through a proxy, e.g. http://user:pass@host:port (residential works best).
+YOUTUBE_PROXY = os.getenv("YOUTUBE_PROXY", "").strip()
+
+# Optional password for the whole site (HTTP Basic auth). Set it whenever the
+# server is reachable from the internet: every dub spends your API credits.
+DUB_USER = os.getenv("DUB_USER", "dublyaj")
+DUB_PASSWORD = os.getenv("DUB_PASSWORD", "")
 ELEVEN_STT_MODEL = os.getenv("ELEVENLABS_STT_MODEL", "scribe_v2")
 
 EN_CODES = ["en", "en-US", "en-GB", "en-CA", "en-AU", "en-IN", "en-IE", "en-NZ"]
@@ -117,7 +129,7 @@ def _map_youtube_error(exc: Exception) -> DubError:
     if isinstance(exc, (RequestBlocked, IpBlocked)):
         return DubError(
             "YOUTUBE_BLOCKED",
-            "YouTube is blocking caption requests from this IP. Try again later or use a proxy.",
+            "YouTube is blocking requests from this server's IP. Set YOUTUBE_PROXY in .env.",
             503,
         )
     return DubError("TRANSCRIPT_ERROR", f"Could not retrieve captions: {type(exc).__name__}", 502)
@@ -125,7 +137,8 @@ def _map_youtube_error(exc: Exception) -> DubError:
 
 def fetch_english_transcript(video_id: str) -> list[dict]:
     """Blocking. Returns [{text, start, duration}, ...] of English captions."""
-    api = YouTubeTranscriptApi()
+    proxy = GenericProxyConfig(http_url=YOUTUBE_PROXY, https_url=YOUTUBE_PROXY) if YOUTUBE_PROXY else None
+    api = YouTubeTranscriptApi(proxy_config=proxy)
     try:
         transcripts = api.list(video_id)
         try:
@@ -163,6 +176,8 @@ async def fetch_youtube_audio(video_id: str) -> bytes:
     nothing touches the disk). Used for speech-to-text, never played back."""
     cmd = [sys.executable, "-m", "yt_dlp", "-q", "--no-warnings", "--no-cache-dir", "--no-part",
            "-f", "bestaudio[abr<=96]/bestaudio", "-o", "-"]
+    if YOUTUBE_PROXY:
+        cmd += ["--proxy", YOUTUBE_PROXY]
     if not shutil.which("deno") and shutil.which("node"):
         cmd += ["--js-runtimes", "node"]  # yt-dlp needs a JS runtime for YouTube
     cmd.append(f"https://www.youtube.com/watch?v={video_id}")
@@ -982,7 +997,34 @@ def get_or_start_job(video_id: str, voice: str, force: bool = False, focus: floa
 # API
 # --------------------------------------------------------------------------- #
 
+class BasicAuth:
+    """HTTP Basic auth for every route except /health (used by the Docker
+    healthcheck). The browser asks once and then sends it with every request,
+    including the stream and audio clips."""
+
+    def __init__(self, app, user: str, password: str):
+        self.app, self.user, self.password = app, user, password
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http" or scope["path"] == "/health" or scope["method"] == "OPTIONS":
+            return await self.app(scope, receive, send)
+        header = dict(scope["headers"]).get(b"authorization", b"").decode("latin-1")
+        if header.startswith("Basic "):
+            try:
+                user, _, password = base64.b64decode(header[6:]).decode("utf-8").partition(":")
+                if secrets.compare_digest(user, self.user) and secrets.compare_digest(password, self.password):
+                    return await self.app(scope, receive, send)
+            except ValueError:
+                pass
+        await send({"type": "http.response.start", "status": 401,
+                    "headers": [(b"www-authenticate", b'Basic realm="Dublyaj", charset="UTF-8"'),
+                                (b"content-type", b"text/plain; charset=utf-8")]})
+        await send({"type": "http.response.body", "body": "Parol kerak / Password required".encode()})
+
+
 app = FastAPI(title="YouTube Uzbek Dubber", version="2.0.0")
+if DUB_PASSWORD:
+    app.add_middleware(BasicAuth, user=DUB_USER, password=DUB_PASSWORD)
 app.add_middleware(
     CORSMiddleware,
     # the extension, youtube.com, and local pages (editor previews, file://)

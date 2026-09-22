@@ -30,6 +30,15 @@ extension/           Optional Chrome extension that dubs directly on youtube.com
 
 To stop it, run `docker compose down`. Generated audio is kept in the `dub-audio` Docker volume. After editing `.env`, run `docker compose up -d` again to apply it.
 
+### On a server (VPS)
+
+The same `docker compose up -d --build` works. The port is published on all interfaces, so the site is at `http://<server-ip>:9988/`. Two settings in `backend/.env` matter on a public server:
+
+- **`DUB_PASSWORD`**: without it, anyone who finds the address can spend your Gemini and ElevenLabs credits. With it set, the browser asks for a login (user `DUB_USER`, default `dublyaj`).
+- **`YOUTUBE_PROXY`**: YouTube blocks many datacenter IPs. If dubbing fails with `YOUTUBE_BLOCKED`, set a proxy such as `http://user:pass@host:port` (residential proxies work best).
+
+After editing `.env`, run `docker compose up -d` to apply it. If the server has a firewall, open the port, for example with `ufw allow 9988/tcp`.
+
 ## Run without Docker
 
 Requires Python 3.11+ and Node.js. yt-dlp needs a JavaScript runtime for speech-to-text. ffmpeg is not needed.
