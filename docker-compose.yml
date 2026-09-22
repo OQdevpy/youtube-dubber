@@ -11,6 +11,9 @@ services:
       - ./backend/.env
     volumes:
       - dub-audio:/data/audio # generated MP3s only
+      # YouTube cookies for servers that hit the bot check (see .env.example):
+      # create backend/cookies.txt, uncomment, and set YOUTUBE_COOKIES=/app/cookies.txt
+      # - ./backend/cookies.txt:/app/cookies.txt
     restart: unless-stopped
 
 volumes:

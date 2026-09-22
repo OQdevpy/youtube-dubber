@@ -90,6 +90,9 @@ SOURCES = ("captions", "stt")
 # YouTube often blocks caption/audio requests from datacenter IPs (VPS hosts).
 # Route them through a proxy, e.g. http://user:pass@host:port (residential works best).
 YOUTUBE_PROXY = os.getenv("YOUTUBE_PROXY", "").strip()
+# Alternative to a proxy for the audio (speech-to-text) path: a YouTube
+# cookies.txt (Netscape format) from a logged-in browser passes the bot check.
+YOUTUBE_COOKIES = os.getenv("YOUTUBE_COOKIES", "").strip()
 
 # Optional password for the whole site (HTTP Basic auth). Set it whenever the
 # server is reachable from the internet: every dub spends your API credits.
@@ -178,6 +181,8 @@ async def fetch_youtube_audio(video_id: str) -> bytes:
            "-f", "bestaudio[abr<=96]/bestaudio", "-o", "-"]
     if YOUTUBE_PROXY:
         cmd += ["--proxy", YOUTUBE_PROXY]
+    if YOUTUBE_COOKIES and Path(YOUTUBE_COOKIES).is_file():
+        cmd += ["--cookies", YOUTUBE_COOKIES]
     if not shutil.which("deno") and shutil.which("node"):
         cmd += ["--js-runtimes", "node"]  # yt-dlp needs a JS runtime for YouTube
     cmd.append(f"https://www.youtube.com/watch?v={video_id}")
@@ -188,7 +193,12 @@ async def fetch_youtube_audio(video_id: str) -> bytes:
         proc.kill()
         raise DubError("AUDIO_FETCH_FAILED", "Timed out fetching the video's audio from YouTube.", 504)
     if proc.returncode != 0 or not audio:
-        detail = err.decode(errors="ignore").strip().splitlines()[-1:] or ["unknown error"]
+        text = err.decode(errors="ignore")
+        if "confirm you" in text and "not a bot" in text:
+            raise DubError("YOUTUBE_BOT_CHECK",
+                           "YouTube asks this server to prove it is not a bot. "
+                           "Set YOUTUBE_PROXY or YOUTUBE_COOKIES in .env.", 503)
+        detail = text.strip().splitlines()[-1:] or ["unknown error"]
         raise DubError("AUDIO_FETCH_FAILED", f"Could not fetch the video's audio: {detail[0][:200]}", 502)
     return audio
 

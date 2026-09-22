@@ -3,3 +3,4 @@ __pycache__/
 backend/cache/
 *.mp3
 .env
+cookies.txt
